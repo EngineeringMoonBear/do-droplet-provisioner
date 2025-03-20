@@ -1,6 +1,8 @@
+import os
 import subprocess
 import time
-import os
+import shutil
+from dotenv import load_dotenv
 
 def run_command(command, capture_output=True):
     result = subprocess.run(command, shell=True, capture_output=capture_output, text=True)
@@ -10,6 +12,14 @@ def run_command(command, capture_output=True):
     return result.stdout.strip()
 
 def main():
+    # Load environment variables from .env file
+    load_dotenv()
+    DO_API_TOKEN = os.getenv("DO_API_TOKEN")
+    
+    if not DO_API_TOKEN:
+        print("Error: DigitalOcean API token not found. Please set it in the .env file.")
+        exit(1)
+    
     # Check if doctl is installed
     if not shutil.which("doctl"):
         print("doctl (DigitalOcean CLI) is required but not installed.")
@@ -18,7 +28,7 @@ def main():
 
     # Authenticate with DigitalOcean
     print("Authenticating with DigitalOcean...")
-    run_command("doctl auth init")
+    run_command(f"doctl auth init --access-token {DO_API_TOKEN}")
 
     # Get available regions
     print("Fetching available DigitalOcean regions...")
