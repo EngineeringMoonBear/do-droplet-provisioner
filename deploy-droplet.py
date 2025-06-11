@@ -5,6 +5,30 @@ import shutil
 from pathlib import Path
 from dotenv import load_dotenv
 
+def wait_for_ssh(ip, max_retries=10):
+    """Wait for SSH to be fully available with retries."""
+    retry_count = 0
+    while retry_count < max_retries:
+        try:
+            # Try to run a simple command via SSH
+            result = subprocess.run(
+                f"ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 root@{ip} 'echo ready'",
+                shell=True,
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0 and "ready" in result.stdout:
+                print("SSH is fully available!")
+                return True
+        except Exception as e:
+            pass
+        
+        print(f"Waiting for SSH... (attempt {retry_count + 1}/{max_retries})")
+        retry_count += 1
+        time.sleep(10)
+    
+    return False
+
 def run_command(command, capture_output=True, env=None):
     result = subprocess.run(command, shell=True, capture_output=capture_output, text=True, env=env)
     if result.returncode != 0:
@@ -89,14 +113,27 @@ def main():
     droplet_ip = run_command(f"doctl compute droplet get {droplet_id} --format PublicIPv4 --no-header", env=doctl_env)
     print(f"Droplet '{droplet_name}' created with IP: {droplet_ip}")
 
-    # Wait for SSH to be available
+    # Wait for SSH to be fully available
     print("Waiting for SSH to be available...")
-    while os.system(f"nc -z {droplet_ip} 22") != 0:
-        time.sleep(5)
+    if not wait_for_ssh(droplet_ip):
+        print("Error: Could not establish a stable SSH connection.")
+        exit(1)
 
     # Install container runtime
     print("Installing selected container runtime...")
+    print(f"Running: {install_command}")
     run_command(f"ssh -o StrictHostKeyChecking=no root@{droplet_ip} '{install_command}'", capture_output=False)
+
+    # Verify installation
+    if choice == "1":  # Podman
+        print("Verifying Podman installation...")
+        run_command(f"ssh -o StrictHostKeyChecking=no root@{droplet_ip} 'podman --version'", capture_output=False)
+    elif choice == "2":  # Kubernetes
+        print("Verifying K3s installation...")
+        run_command(f"ssh -o StrictHostKeyChecking=no root@{droplet_ip} 'k3s --version'", capture_output=False)
+    elif choice == "3":  # Docker
+        print("Verifying Docker installation...")
+        run_command(f"ssh -o StrictHostKeyChecking=no root@{droplet_ip} 'docker --version'", capture_output=False)
 
     # Log droplet info
     with open("droplets.log", "a") as log_file:
