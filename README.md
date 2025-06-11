@@ -1,123 +1,127 @@
-# Container Management Scripts
+# OrbStack Machine Provisioner
 
-A set of Python scripts to easily provision and manage containers in both DigitalOcean and OrbStack environments.
+A collection of scripts to manage OrbStack machines and DigitalOcean droplets with different container runtimes.
 
-## Prerequisites
+## Requirements
 
-### For DigitalOcean Deployment
-1. Python 3.6 or higher
-2. [doctl](https://docs.digitalocean.com/reference/doctl/how-to/install/) - DigitalOcean Command Line Interface
-3. A DigitalOcean account and API token
-4. SSH key added to your DigitalOcean account
+### For OrbStack
+- macOS 13.0 or newer
+- [OrbStack](https://orbstack.dev/download) installed
+- Python 3.7 or newer
 
-### For Local OrbStack Deployment
-1. Python 3.6 or higher
-2. [OrbStack](https://orbstack.dev/download) installed and configured
-3. OrbStack CLI available in your path
+### For DigitalOcean
+- Python 3.7 or newer
+- [doctl](https://docs.digitalocean.com/reference/doctl/how-to/install/) installed
+- DigitalOcean API token
+- SSH key added to your DigitalOcean account
 
-## Installation
+## Scripts
 
-1. Clone this repository:
+### 1. `deploy-orb-podman.py`
+
+Creates an Ubuntu machine in OrbStack and installs Podman container runtime.
+
+**Features:**
+- Creates a new Ubuntu machine
+- Installs Podman from Ubuntu's official repositories
+- Verifies the installation
+- Provides helpful commands for using Podman
+
+**Usage:**
 ```bash
-git clone <repository-url>
-cd do-droplet-provisioner
+python deploy-orb-podman.py
 ```
 
-2. Install required Python packages:
-```bash
-pip install python-dotenv
-```
+### 2. `deploy-droplet.py`
 
-3. For DigitalOcean deployment only, create a `.env` file:
-```bash
-echo "DO_API_TOKEN=your_digitalocean_api_token" > .env
-```
+Creates and provisions DigitalOcean droplets with your choice of container runtime.
 
-## Usage
+**Features:**
+- Interactive region and size selection
+- Support for multiple container runtimes:
+  - Podman
+  - Docker
+  - Kubernetes (K3s)
+- Automatic SSH key configuration
+- Machine readiness checks
+- Logs droplet information for future reference
 
-### DigitalOcean Deployment
-
-#### Creating a Droplet
-Use `deploy-droplet.py` to create a new droplet with your chosen container runtime:
+**Usage:**
 ```bash
 python deploy-droplet.py
 ```
 
-#### Destroying Droplets
-Use `destroy-droplet.py` to remove droplets:
+### 3. `destroy-droplet.py`
+
+Safely destroys DigitalOcean droplets and cleans up resources.
+
+**Features:**
+- Lists available droplets
+- Gracefully terminates instances
+- Cleans up associated resources
+- Maintains a log of deletions
+- Interactive confirmation to prevent accidental deletions
+
+**Usage:**
 ```bash
 python destroy-droplet.py
 ```
 
-### Local OrbStack Deployment
+## Common Commands
 
-#### Creating a Local Machine
-Use `deploy-orb.py` to create a new local machine with your chosen container runtime:
+### OrbStack Commands
 ```bash
-python deploy-orb.py
+# Create a machine
+orb create ubuntu machine-name
+
+# Run commands on a machine
+orb run -m machine-name command
+
+# Copy files to a machine
+orb push -m machine-name local_file remote_path
+
+# Access machine shell
+orb shell -m machine-name
+
+# Stop a machine
+orb stop machine-name
+
+# Delete a machine
+orb delete machine-name
 ```
 
-Features:
-- Choice of OS (Ubuntu, Debian, Fedora, or Alpine)
-- Choice of container runtime (Podman, Kubernetes, or Docker)
-- Automatic installation and configuration
-- Local machine logging
-
-#### Destroying Local Machines
-Use `destroy-orb.py` to remove local machines:
+### DigitalOcean Commands
 ```bash
-python destroy-orb.py
+# List droplets
+doctl compute droplet list
+
+# SSH into a droplet
+ssh root@droplet-ip
+
+# Delete a droplet
+doctl compute droplet delete droplet-id
 ```
 
 ## File Structure
 
-### DigitalOcean Scripts
-- `deploy-droplet.py` - Script for creating and provisioning droplets
-- `destroy-droplet.py` - Script for destroying droplets
-- `droplets.log` - Log file containing information about created droplets
-- `.env` - Configuration file for your DigitalOcean API token
+```
+.
+├── README.md
+├── deploy-orb-podman.py  # OrbStack Podman installation script
+├── deploy-droplet.py     # DigitalOcean deployment script
+├── destroy-droplet.py    # DigitalOcean cleanup script
+├── droplets.log         # DigitalOcean droplet tracking log
+└── .gitignore
+```
 
-### OrbStack Scripts
-- `deploy-orb.py` - Script for creating and provisioning local machines
-- `destroy-orb.py` - Script for destroying local machines
-- `orb_machines.log` - Log file containing information about created local machines
+## Error Handling
 
-## Container Runtime Installation Methods
-
-### Podman
-- Uses distribution-specific installation methods
-- Automatically selects correct repository based on OS
-- Installs all required dependencies
-
-### Kubernetes (K3s)
-- Uses the official Rancher K3s installation script
-- Installs a lightweight Kubernetes distribution
-- Sets up a single-node cluster
-
-### Docker
-- Uses distribution-specific installation methods
-- Sets up the Docker daemon automatically
-- Configures necessary system settings
-
-## Troubleshooting
-
-### DigitalOcean SSH Issues
-If the deployment script fails with SSH connection errors:
-1. Ensure your SSH key is properly added to DigitalOcean
-2. Wait a few minutes and try again
-3. Check if you can manually SSH into the droplet
-
-### OrbStack Issues
-If the local deployment fails:
-1. Ensure OrbStack is running (`orb doctor`)
-2. Check machine status (`orb ps`)
-3. Try connecting manually (`orb ssh machine-name`)
-
-## Security Notes
-
-1. Never commit your `.env` file to version control
-2. The scripts use secure methods for authentication
-3. Local machines are isolated from your host system
+The scripts include error handling for common scenarios:
+- Machine/droplet creation failures
+- Connection timeouts
+- Installation errors
+- Resource cleanup issues
+- SSH key configuration problems
 
 ## Contributing
 
