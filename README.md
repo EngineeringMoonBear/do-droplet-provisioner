@@ -110,8 +110,8 @@ If the deployment script fails with SSH connection errors:
 ### OrbStack Issues
 If the local deployment fails:
 1. Ensure OrbStack is running (`orb doctor`)
-2. Check machine status (`orb machine ls`)
-3. Try connecting manually (`orb connect machine-name`)
+2. Check machine status (`orb ps`)
+3. Try connecting manually (`orb ssh machine-name`)
 
 ## Security Notes
 
