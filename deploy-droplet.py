@@ -10,7 +10,9 @@ def run_command(command, capture_output=True, env=None):
     if result.returncode != 0:
         print(f"Error: {result.stderr}")
         exit(1)
-    return result.stdout.strip()
+    if capture_output:
+        return result.stdout.strip()
+    return None  # Prevent crash if capture_output=False
 
 def main():
     # Load .env file from the same directory as the script
@@ -34,6 +36,9 @@ def main():
     # Set env for all doctl calls
     doctl_env = os.environ.copy()
     doctl_env["DIGITALOCEAN_ACCESS_TOKEN"] = DO_API_TOKEN
+    
+ # Choose droplet name
+    droplet_name = input("Enter a name for your droplet (default: test-droplet): ") or "test-droplet"
 
     # Get regions
     print("Fetching available DigitalOcean regions...")
@@ -63,24 +68,26 @@ def main():
         "2": "curl -sfL https://get.k3s.io | sh -",
         "3": "curl -fsSL https://get.docker.com | sh"
     }
-    install_command = install_commands.get(choice, "")
+    install_command = install_commands.get(choice)
     if not install_command:
         print("Invalid selection.")
         exit(1)
 
+    # SSH key IDs
+    ssh_keys = run_command("doctl compute ssh-key list --format ID --no-header", env=doctl_env).replace("\n", ",")
+
     # Create droplet
     print("Creating the droplet...")
-    ssh_keys = run_command("doctl compute ssh-key list --format ID --no-header", env=doctl_env).replace("\n", ",")
     droplet_id = run_command(
-        f"doctl compute droplet create test-droplet "
+        f"doctl compute droplet create {droplet_name} "
         f"--region {region} --size {size} --image {image} "
         f"--ssh-keys {ssh_keys} --wait --format ID --no-header",
         env=doctl_env
     )
 
-    # Get IP
+    # Get droplet IP
     droplet_ip = run_command(f"doctl compute droplet get {droplet_id} --format PublicIPv4 --no-header", env=doctl_env)
-    print(f"Droplet created with IP: {droplet_ip}")
+    print(f"Droplet '{droplet_name}' created with IP: {droplet_ip}")
 
     # Wait for SSH to be available
     print("Waiting for SSH to be available...")
@@ -91,7 +98,13 @@ def main():
     print("Installing selected container runtime...")
     run_command(f"ssh -o StrictHostKeyChecking=no root@{droplet_ip} '{install_command}'", capture_output=False)
 
-    print(f"✅ Installation complete. You can now SSH into your droplet with: ssh root@{droplet_ip}")
+    # Log droplet info
+    with open("droplets.log", "a") as log_file:
+        log_file.write(f"{droplet_name},{droplet_ip}\n")
+
+    print("\n✅ All done!")
+    print(f"🔗 SSH into your droplet: ssh root@{droplet_ip}")
+    print(f"📓 Logged to droplets.log as: {droplet_name},{droplet_ip}")
 
 if __name__ == "__main__":
     main()
