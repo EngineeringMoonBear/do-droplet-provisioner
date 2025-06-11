@@ -88,7 +88,12 @@ def main():
         print(f"[{key}] {value}")
     choice = input("Enter your choice (1/2/3): ")
     install_commands = {
-        "1": "sudo apt update && sudo apt install -y podman",
+        "1": """
+source /etc/os-release && \
+echo "deb https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/ /" | sudo tee /etc/apt/sources.list.d/devel:kubic:libcontainers:stable.list && \
+curl -L "https://download.opensuse.org/repositories/devel:/kubic:/libcontainers:/stable/xUbuntu_${VERSION_ID}/Release.key" | sudo apt-key add - && \
+sudo apt-get update -y && \
+sudo apt-get install -y podman""",
         "2": "curl -sfL https://get.k3s.io | sh -",
         "3": "curl -fsSL https://get.docker.com | sh"
     }
@@ -139,9 +144,17 @@ def main():
     with open("droplets.log", "a") as log_file:
         log_file.write(f"{droplet_name},{droplet_ip}\n")
 
-    print("\n✅ All done!")
-    print(f"🔗 SSH into your droplet: ssh root@{droplet_ip}")
-    print(f"📓 Logged to droplets.log as: {droplet_name},{droplet_ip}")
+    print("\n" + "="*50)
+    print("🚀 Deployment Complete!")
+    print("="*50)
+    print("\nSSH Connection:")
+    print(f"    ssh root@{droplet_ip}")
+    print("\n📝 Details:")
+    print(f"    Name: {droplet_name}")
+    print(f"    IP:   {droplet_ip}")
+    print(f"    Runtime: {options[choice]}")
+    print("\n💾 Connection info saved to droplets.log")
+    print("="*50)
 
 if __name__ == "__main__":
     main()
