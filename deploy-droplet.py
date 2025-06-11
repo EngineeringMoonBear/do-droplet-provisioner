@@ -36,7 +36,7 @@ def main():
     # Set env for all doctl calls
     doctl_env = os.environ.copy()
     doctl_env["DIGITALOCEAN_ACCESS_TOKEN"] = DO_API_TOKEN
-    
+
  # Choose droplet name
     droplet_name = input("Enter a name for your droplet (default: test-droplet): ") or "test-droplet"
 
