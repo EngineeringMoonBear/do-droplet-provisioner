@@ -2,52 +2,57 @@ import os
 import subprocess
 import time
 import shutil
+from pathlib import Path
 from dotenv import load_dotenv
 
-def run_command(command, capture_output=True):
-    result = subprocess.run(command, shell=True, capture_output=capture_output, text=True)
+def run_command(command, capture_output=True, env=None):
+    result = subprocess.run(command, shell=True, capture_output=capture_output, text=True, env=env)
     if result.returncode != 0:
         print(f"Error: {result.stderr}")
         exit(1)
     return result.stdout.strip()
 
 def main():
-    # Load environment variables from .env file
-    load_dotenv()
+    # Load .env file from the same directory as the script
+    env_path = Path(__file__).parent / '.env'
+    load_dotenv(dotenv_path=env_path)
+
+    # Pull API token
     DO_API_TOKEN = os.getenv("DO_API_TOKEN")
-    
     if not DO_API_TOKEN:
         print("Error: DigitalOcean API token not found. Please set it in the .env file.")
         exit(1)
     
-    # Check if doctl is installed
+    print(f"Loaded DO_API_TOKEN: {DO_API_TOKEN[:10]}...")  # Debug
+
+    # Check for doctl
     if not shutil.which("doctl"):
         print("doctl (DigitalOcean CLI) is required but not installed.")
-        print("Follow installation instructions at: https://docs.digitalocean.com/reference/doctl/how-to/install/")
+        print("Install: https://docs.digitalocean.com/reference/doctl/how-to/install/")
         exit(1)
 
-    # Authenticate with DigitalOcean
-    print("Authenticating with DigitalOcean...")
-    run_command(f"doctl auth init --access-token {DO_API_TOKEN}")
+    # Set env for all doctl calls
+    doctl_env = os.environ.copy()
+    doctl_env["DIGITALOCEAN_ACCESS_TOKEN"] = DO_API_TOKEN
 
-    # Get available regions
+    # Get regions
     print("Fetching available DigitalOcean regions...")
-    regions = run_command("doctl compute region list --format Slug --no-header").split("\n")
+    regions = run_command("doctl compute region list --format Slug --no-header", env=doctl_env).split("\n")
     for idx, region in enumerate(regions):
         print(f"[{idx}] {region}")
     region = regions[int(input("Enter the number corresponding to your desired region: "))]
 
-    # Get available droplet sizes
+    # Get droplet sizes
     print("Fetching available droplet sizes...")
-    sizes = run_command("doctl compute size list --format Slug --no-header").split("\n")
+    sizes = run_command("doctl compute size list --format Slug --no-header", env=doctl_env).split("\n")
     for idx, size in enumerate(sizes):
         print(f"[{idx}] {size}")
     size = sizes[int(input("Enter the number corresponding to your desired size: "))]
 
-    # Choose OS image
+    # OS image
     image = input("Enter the OS image slug (default: ubuntu-22-04-x64): ") or "ubuntu-22-04-x64"
 
-    # Select container runtime
+    # Container runtime
     options = {"1": "Podman", "2": "Kubernetes", "3": "Docker"}
     print("Choose a container runtime:")
     for key, value in options.items():
@@ -63,24 +68,30 @@ def main():
         print("Invalid selection.")
         exit(1)
 
-    # Deploy the droplet
+    # Create droplet
     print("Creating the droplet...")
-    droplet_id = run_command(f"doctl compute droplet create test-droplet --region {region} --size {size} --image {image} --ssh-keys $(doctl compute ssh-key list --format ID --no-header | tr '\n' ',') --wait --format ID --no-header")
+    ssh_keys = run_command("doctl compute ssh-key list --format ID --no-header", env=doctl_env).replace("\n", ",")
+    droplet_id = run_command(
+        f"doctl compute droplet create test-droplet "
+        f"--region {region} --size {size} --image {image} "
+        f"--ssh-keys {ssh_keys} --wait --format ID --no-header",
+        env=doctl_env
+    )
 
-    # Get Droplet IP Address
-    droplet_ip = run_command(f"doctl compute droplet get {droplet_id} --format PublicIPv4 --no-header")
+    # Get IP
+    droplet_ip = run_command(f"doctl compute droplet get {droplet_id} --format PublicIPv4 --no-header", env=doctl_env)
     print(f"Droplet created with IP: {droplet_ip}")
 
-    # Wait for SSH
+    # Wait for SSH to be available
     print("Waiting for SSH to be available...")
     while os.system(f"nc -z {droplet_ip} 22") != 0:
         time.sleep(5)
-    
-    # Install selected container runtime
+
+    # Install container runtime
     print("Installing selected container runtime...")
     run_command(f"ssh -o StrictHostKeyChecking=no root@{droplet_ip} '{install_command}'", capture_output=False)
-    
-    print(f"Installation complete. You can now SSH into your droplet with: ssh root@{droplet_ip}")
+
+    print(f"✅ Installation complete. You can now SSH into your droplet with: ssh root@{droplet_ip}")
 
 if __name__ == "__main__":
     main()
